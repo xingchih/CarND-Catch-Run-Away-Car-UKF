@@ -144,7 +144,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
    *  Prediction
    ****************************************************************************/
   dt_ = (meas_package.timestamp_ - previous_timestamp_)/ 1000000.0;
-  std::cout << "ukf delta_t   = " << dt_ << std::endl;
   Prediction( dt_ );
   previous_timestamp_ = meas_package.timestamp_;
 

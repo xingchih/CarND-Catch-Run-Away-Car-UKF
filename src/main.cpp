@@ -8,7 +8,10 @@ using namespace std;
 
 // for convenience
 using json = nlohmann::json;
-
+double distance_difference_sum  = 0.0;
+double heading_to_target_ud     = 0.0;
+double heading_difference_ud    = 0.0;
+uint32_t   hunter_hearbeat          = 0;
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -27,6 +30,9 @@ std::string hasData(std::string s) {
 
 int main()
 {
+  
+  
+
   uWS::Hub h;
 
   // Create a UKF instance
@@ -119,8 +125,9 @@ int main()
         // distance from target
         double distance_difference = sqrt((target_y - hunter_y)*(target_y - hunter_y) + (target_x - hunter_x)*(target_x - hunter_x));
         // extrapolate delta time with gain = 0.175
-        double delta_t = distance_difference*0.2;
- 
+        distance_difference_sum = distance_difference_sum*0.5 + distance_difference;
+        double delta_t = distance_difference*0.175 + distance_difference_sum*0.000005;
+
         // noise free process model
         if (fabs(yawd) > 0.001) 
         {
@@ -141,13 +148,29 @@ int main()
         hunter_heading = atan2(target_y, target_x);
          */ 
     	  double heading_to_target = atan2(target_y - hunter_y, target_x - hunter_x);
-    	  while (heading_to_target > M_PI) heading_to_target-=2.*M_PI; 
-    	  while (heading_to_target <-M_PI) heading_to_target+=2.*M_PI;
+        if(fabs(heading_to_target) < 1000)
+        {
+    	     while (heading_to_target > M_PI) heading_to_target-=2.*M_PI; 
+    	     while (heading_to_target <-M_PI) heading_to_target+=2.*M_PI;
+           heading_to_target_ud = heading_to_target;
+        }
+        else
+        {
+           heading_to_target = heading_to_target_ud;
+        }
     	  //turn towards the target
     	  double heading_difference = heading_to_target - hunter_heading;
-    	  while (heading_difference > M_PI) heading_difference-=2.*M_PI; 
-    	  while (heading_difference <-M_PI) heading_difference+=2.*M_PI;
-
+        if(fabs(heading_difference) < 1000)
+        {
+    	     while (heading_difference > M_PI) heading_difference-=2.*M_PI; 
+    	     while (heading_difference <-M_PI) heading_difference+=2.*M_PI;
+           heading_difference_ud = heading_difference;
+        }
+        else
+        {
+           heading_difference = heading_difference_ud;
+        }
+        cout<<"Hunter heartbeat: "<< hunter_hearbeat++ <<endl;
 
           json msgJson;
           msgJson["turn"] = heading_difference;
