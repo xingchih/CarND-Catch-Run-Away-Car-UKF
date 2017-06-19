@@ -52,13 +52,12 @@ int main()
         
         if (event == "telemetry") {
           // j[1] is the data JSON object
-
           double hunter_x = std::stod(j[1]["hunter_x"].get<std::string>());
           double hunter_y = std::stod(j[1]["hunter_y"].get<std::string>());
           double hunter_heading = std::stod(j[1]["hunter_heading"].get<std::string>());
-          
-          string lidar_measurment = j[1]["lidar_measurement"];
-          
+
+          string lidar_measurment = j [1]["lidar_measurement"];
+
           MeasurementPackage meas_package_L;
           istringstream iss_L(lidar_measurment);
     	  long long timestamp_L;
@@ -67,6 +66,7 @@ int main()
     	  string sensor_type_L;
     	  iss_L >> sensor_type_L;
 
+          
       	  // read measurements at this timestamp
       	  meas_package_L.sensor_type_ = MeasurementPackage::LASER;
           meas_package_L.raw_measurements_ = VectorXd(2);
@@ -78,6 +78,7 @@ int main()
           iss_L >> timestamp_L;
           meas_package_L.timestamp_ = timestamp_L;
           
+
     	  ukf.ProcessMeasurement(meas_package_L);
 		 
     	  string radar_measurment = j[1]["radar_measurement"];
@@ -108,6 +109,37 @@ int main()
 	  target_x = ukf.x_[0];
 	  target_y = ukf.x_[1];
 
+        // extract state values for read-ability
+        double px_p, py_p;
+        double p_x  = ukf.x_[0];
+        double p_y  = ukf.x_[1];
+        double v    = ukf.x_[2];
+        double yaw  = ukf.x_[3];
+        double yawd = ukf.x_[4];
+        // distance from target
+        double distance_difference = sqrt((target_y - hunter_y)*(target_y - hunter_y) + (target_x - hunter_x)*(target_x - hunter_x));
+        // extrapolate delta time with gain = 0.175
+        double delta_t = distance_difference*0.2;
+ 
+        // noise free process model
+        if (fabs(yawd) > 0.001) 
+        {
+            px_p = p_x + v/yawd * ( sin(yaw + yawd*delta_t) - sin(yaw));
+            py_p = p_y + v/yawd * ( cos(yaw) - cos(yaw+yawd*delta_t) );
+        }
+        else 
+        {
+            px_p = p_x + v*delta_t*cos(yaw);
+            py_p = p_y + v*delta_t*sin(yaw);
+        }
+        // set target
+        target_x = px_p;
+        target_y = py_p;
+/*
+        hunter_x = target_x;
+        hunter_y = target_y;
+        hunter_heading = atan2(target_y, target_x);
+         */ 
     	  double heading_to_target = atan2(target_y - hunter_y, target_x - hunter_x);
     	  while (heading_to_target > M_PI) heading_to_target-=2.*M_PI; 
     	  while (heading_to_target <-M_PI) heading_to_target+=2.*M_PI;
@@ -116,7 +148,6 @@ int main()
     	  while (heading_difference > M_PI) heading_difference-=2.*M_PI; 
     	  while (heading_difference <-M_PI) heading_difference+=2.*M_PI;
 
-    	  double distance_difference = sqrt((target_y - hunter_y)*(target_y - hunter_y) + (target_x - hunter_x)*(target_x - hunter_x));
 
           json msgJson;
           msgJson["turn"] = heading_difference;
